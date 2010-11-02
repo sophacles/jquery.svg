@@ -56,7 +56,7 @@ function SVGGraph(wrapper) {
 	this._series = []; // The series to be plotted, each is an object
 	this._onstatus = null; // The callback function for status updates
 	this._chartCont = this._wrapper.svg(0, 0, 0, 0, {class_: 'svg-graph'}); // The main container for the graph
-	
+
 	this.xAxis = new SVGGraphAxis(this); // The main x-axis
 	this.xAxis.title('', 40);
 	this.yAxis = new SVGGraphAxis(this); // The main y-axis
@@ -729,7 +729,7 @@ $.extend(SVGGraphAxis.prototype, {
 	/* Set or retrieve the title for this axis.
 	   @param  title   (string) the title text
 	   @param  offset  (number) the distance to offset the title position (optional)
-	   @param  colour  (string) how to colour the title (optional) 
+	   @param  colour  (string) how to colour the title (optional)
 	   @param  format  (object) formatting settings for the title (optional)
 	   @return  (SVGGraphAxis) this axis object or
 	            (object) title, offset, and format values (if no parameters) */
@@ -757,7 +757,7 @@ $.extend(SVGGraphAxis.prototype, {
 
 	/* Set or retrieve the labels for this axis.
 	   @param  labels  (string[]) the text for each entry
-	   @param  colour  (string) how to colour the labels (optional) 
+	   @param  colour  (string) how to colour the labels (optional)
 	   @param  format  (object) formatting settings for the labels (optional)
 	   @return  (SVGGraphAxis) this axis object or
 	            (object) labels and format values (if no parameters) */
@@ -955,6 +955,11 @@ $.extend(SVGColumnChart.prototype, {
 	_drawXAxis: function(graph, numSer, numVal, barWidth, barGap, dims, xScale) {
 		var axis = graph.xAxis;
 		if (axis._title) {
+		var myw = 220;
+		var myh = 30;
+		graph._wrapper.rect(graph._chartCont, (dims[graph.X] + dims[graph.W] /2) - myw/2,
+		  (dims[graph.Y] + dims[graph.H] + axis._titleOffset) - (myh/2 + 8), myw, myh, 10, 10,
+		  {fill: "#ffffff", opacity: .75});
 			graph._wrapper.text(graph._chartCont, dims[graph.X] + dims[graph.W] / 2,
 				dims[graph.Y] + dims[graph.H] + axis._titleOffset,
 				axis._title, $.extend({textAnchor: 'middle'}, axis._titleFormat || {}));
@@ -967,14 +972,19 @@ $.extend(SVGColumnChart.prototype, {
 		if (axis._ticks.major) {
 			var offsets = graph._getTickOffsets(axis, true);
 			for (var i = 1; i < numVal; i++) {
+				if (i%axis._ticks.major) continue;
 				var x = dims[graph.X] + xScale * (barGap / 2 + i * (numSer * barWidth + barGap));
 				graph._wrapper.line(gl, x, dims[graph.Y] + dims[graph.H] + offsets[0] * axis._ticks.size,
 					x, dims[graph.Y] + dims[graph.H] + offsets[1] * axis._ticks.size);
 			}
 			for (var i = 0; i < numVal; i++) {
+				if (i%axis._ticks.major) continue;
 				var x = dims[graph.X] + xScale * (barGap / 2 + (i + 0.5) * (numSer * barWidth + barGap));
-				graph._wrapper.text(gt, x, dims[graph.Y] + dims[graph.H] + 2 * axis._ticks.size,
-					(axis._labels ? axis._labels[i] : '' + i));
+				var n = graph._wrapper.createText();
+				n.span("10", {fontSize:25});
+				n.span((axis._labels ? axis._labels[i/axis._ticks.major] : '' + i),
+				  {dy:'-10', fontSize:20});
+				graph._wrapper.text(gt, x, dims[graph.Y] + dims[graph.H] + 3 * axis._ticks.size, n);
 			}
 		}
 	}
@@ -1328,7 +1338,7 @@ $.extend(SVGLineChart.prototype, {
 	options: function() {
 		return [];
 	},
-	
+
 	/* Actually draw the graph in this type's style.
 	   @param  graph  (object) the SVGGraph object */
 	drawGraph: function(graph) {
