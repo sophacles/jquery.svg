@@ -522,6 +522,18 @@ $.extend(SVGGraph.prototype, {
 		}
 		return totals;
 	},
+	_getLabel: function(label, scale, format) {
+		var n = this._wrapper.createText();
+		if (scale == 'log') {
+			fsize = format.fontSize ? format.fontSize : 12;
+			newfsize = parseInt("" + ((fsize * 2)/3));
+			n.span("10", format);
+			n.span(label, {dy:('-'+(newfsize/2)), fontSize:newfsize});
+		} else{
+			n.span(label, format);
+		}
+		return n;
+	},
 
 	/* Draw the chart legend. */
 	_drawLegend: function() {
@@ -678,7 +690,7 @@ function SVGGraphAxis(graph, title, min, max, major, minor) {
 	this._titleFormat = {}; // Formatting settings for the title
 	this._titleOffset = 0; // The offset for positioning the title
 	this._labels = null; // List of labels for this axis - one per possible value across all series
-    this._labelScale = 'linear'; // axis scaling considerations (e.g., log)
+	this._labelScale = 'linear'; // axis scaling considerations (e.g., log)
 	this._labelFormat = {}; // Formatting settings for the labels
 	this._lineFormat = {stroke: 'black', strokeWidth: 1}; // Formatting settings for the axis lines
 	this._ticks = {major: major || 10, minor: minor || 0, size: 10, position: 'out'}; // Tick mark options
@@ -772,17 +784,18 @@ $.extend(SVGGraphAxis.prototype, {
 	            (object) labels and format values (if no parameters) */
 	labels: function(labels, colour, scale, format) {
 		if (arguments.length == 0) {
-			return {labels: this._labels, format: this._labelFormat};
+			return {labels: this._labels, format: this._labelFormat, scale: this._labelScale};
 		}
 
+		//alert("labels: " + labels + " colour: " + colour + " scale: " + scale + " format: " + format);
         var scaleopts = ['linear', 'log'];
 
 		if (typeof colour != 'string') {
 			format = colour;
 			colour = null;
 		} else if ($.inArray(colour, scaleopts)) {
-            scale = colour;
             format = scale;
+            scale = colour;
             colour = null;
         } else if (typeof scale != 'string') {
             format = scale;
@@ -978,33 +991,43 @@ $.extend(SVGColumnChart.prototype, {
 		if (axis._title) {
 		var myw = 220;
 		var myh = 30;
-		graph._wrapper.rect(graph._chartCont, (dims[graph.X] + dims[graph.W] /2) - myw/2,
+		/*var r = graph._wrapper.rect(graph._chartCont, (dims[graph.X] + dims[graph.W] /2) - myw/2,
 		  (dims[graph.Y] + dims[graph.H] + axis._titleOffset) - (myh/2 + 8), myw, myh, 10, 10,
 		  {fill: "#ffffff", opacity: .75});
-			graph._wrapper.text(graph._chartCont, dims[graph.X] + dims[graph.W] / 2,
-				dims[graph.Y] + dims[graph.H] + axis._titleOffset,
-				axis._title, $.extend({textAnchor: 'middle'}, axis._titleFormat || {}));
+		*/
+		var t = graph._wrapper.text(graph._chartCont, dims[graph.X] + dims[graph.W] / 2,
+			dims[graph.Y] + dims[graph.H] + axis._titleOffset,
+			axis._title, $.extend({textAnchor: 'middle'}, axis._titleFormat || {}));
+		var tb = t.getBoundingClientRect();
+		//The -8 stuff is magic i dont understand, it just is needed in my firefox :(
+		var r = graph._wrapper.rect(graph._charCont, tb.left - 8 - 2, tb.top - 8 - 2, tb.width + 4,
+			tb.height + 0, tb.height/4, tb.height/4, {fill: "#ffffff", opacity: .5});
+		// without this line, the rect sits on top of the text...
+		$(t).insertAfter(r);
 		}
 		var gl = graph._wrapper.group(graph._chartCont, $.extend({class_: 'xAxis'}, axis._lineFormat));
 		var gt = graph._wrapper.group(graph._chartCont, $.extend({class_: 'xAxisLabels',
 			textAnchor: 'middle'}, axis._labelFormat));
 		graph._wrapper.line(gl, dims[graph.X], dims[graph.Y] + dims[graph.H],
 			dims[graph.X] + dims[graph.W], dims[graph.Y] + dims[graph.H]);
-		if (axis._ticks.major) {
-			var offsets = graph._getTickOffsets(axis, true);
-			for (var i = 1; i < numVal; i++) {
-				if (i%axis._ticks.major) continue;
+		var offsets = graph._getTickOffsets(axis, true);
+		for (var i = 1; i < numVal; i++) {
+			if (axis._ticks.major  && !(i%axis._ticks.major)) {
 				var x = dims[graph.X] + xScale * (barGap / 2 + i * (numSer * barWidth + barGap));
 				graph._wrapper.line(gl, x, dims[graph.Y] + dims[graph.H] + offsets[0] * axis._ticks.size,
 					x, dims[graph.Y] + dims[graph.H] + offsets[1] * axis._ticks.size);
+			} else if (axis._ticks.minor && i%axis._ticks.major) {
+				var x = dims[graph.X] + xScale * (barGap / 2 + i * (numSer * barWidth + barGap));
+				graph._wrapper.line(gl, x, dims[graph.Y] + dims[graph.H] + offsets[0] * (axis._ticks.size),
+					x, dims[graph.Y] + dims[graph.H] + offsets[1] * (axis._ticks.size/2));
 			}
-			for (var i = 0; i < numVal; i++) {
-				if (i%axis._ticks.major) continue;
+		}
+		//alert("axis._labelFormat: " + axis._labelFormat);
+		for (var i = 0; i < numVal; i++) {
+			if (axis._ticks.major && !(i%axis._ticks.major)){
 				var x = dims[graph.X] + xScale * (barGap / 2 + (i + 0.5) * (numSer * barWidth + barGap));
-				var n = graph._wrapper.createText();
-				n.span("10", {fontSize:25});
-				n.span((axis._labels ? axis._labels[i/axis._ticks.major] : '' + i),
-				  {dy:'-10', fontSize:20});
+				n = graph._getLabel(axis._labels ? axis._labels[i/axis._ticks.major] : '' + i,
+						axis._labelScale, axis._labelFormat);
 				graph._wrapper.text(gt, x, dims[graph.Y] + dims[graph.H] + 3 * axis._ticks.size, n);
 			}
 		}
