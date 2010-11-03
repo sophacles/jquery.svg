@@ -678,6 +678,7 @@ function SVGGraphAxis(graph, title, min, max, major, minor) {
 	this._titleFormat = {}; // Formatting settings for the title
 	this._titleOffset = 0; // The offset for positioning the title
 	this._labels = null; // List of labels for this axis - one per possible value across all series
+    this._labelScale = 'linear'; // axis scaling considerations (e.g., log)
 	this._labelFormat = {}; // Formatting settings for the labels
 	this._lineFormat = {stroke: 'black', strokeWidth: 1}; // Formatting settings for the axis lines
 	this._ticks = {major: major || 10, minor: minor || 0, size: 10, position: 'out'}; // Tick mark options
@@ -758,18 +759,38 @@ $.extend(SVGGraphAxis.prototype, {
 	/* Set or retrieve the labels for this axis.
 	   @param  labels  (string[]) the text for each entry
 	   @param  colour  (string) how to colour the labels (optional)
+       @param  scale   (string) base unit style for lables
+                       e.g., a scale of "log" makes all labels 10^label.
+                       Choices are:
+                           linear - scale of the graph is linear, the labels
+                                    are displayed as given (default)
+                           log    - scale of the graph is logrithmic, the
+                                    labels are displayed as 10^n
+                       (optional)
 	   @param  format  (object) formatting settings for the labels (optional)
 	   @return  (SVGGraphAxis) this axis object or
 	            (object) labels and format values (if no parameters) */
-	labels: function(labels, colour, format) {
+	labels: function(labels, colour, scale, format) {
 		if (arguments.length == 0) {
 			return {labels: this._labels, format: this._labelFormat};
 		}
+
+        var scaleopts = ['linear', 'log'];
+
 		if (typeof colour != 'string') {
 			format = colour;
 			colour = null;
-		}
+		} else if ($.inArray(colour, scaleopts)) {
+            scale = colour;
+            format = scale;
+            colour = null;
+        } else if (typeof scale != 'string') {
+            format = scale;
+            scale = 'linear';
+        } //else full args... carry on
+
 		this._labels = labels;
+        this._labelScale = scale;
 		if (colour || format) {
 			this._labelFormat = $.extend(format || {}, (colour ? {fill: colour} : {}));
 		}
