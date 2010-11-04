@@ -689,6 +689,8 @@ function SVGGraphAxis(graph, title, min, max, major, minor) {
 	this._title = title || ''; // Title of this axis
 	this._titleFormat = {}; // Formatting settings for the title
 	this._titleOffset = 0; // The offset for positioning the title
+	this._titleBox = false; // Do we box up the title?
+	this._titleBoxFormat = {}; // imortant info for title box
 	this._labels = null; // List of labels for this axis - one per possible value across all series
 	this._labelScale = 'linear'; // axis scaling considerations (e.g., log)
 	this._labelFormat = {}; // Formatting settings for the labels
@@ -765,6 +767,20 @@ $.extend(SVGGraphAxis.prototype, {
 			this._titleFormat = $.extend(format || {}, (colour ? {fill: colour} : {}));
 		}
 		this._graph._drawGraph();
+		return this;
+	},
+
+	/* Set a bounding box for the title.
+	   @param active (bool) Is the box on or off?
+	   @param format (object) formatting settings for the title box (optional)
+	*/
+	titleBox: function(active, format) {
+		this._titleBox = active;
+
+		if (typeof format == 'undefined') {
+			format = {};
+		}
+		this._titleBoxFormat = $.extend({fill: "#ffffff", opacity: .5}, format);
 		return this;
 	},
 
@@ -989,22 +1005,22 @@ $.extend(SVGColumnChart.prototype, {
 	_drawXAxis: function(graph, numSer, numVal, barWidth, barGap, dims, xScale) {
 		var axis = graph.xAxis;
 		if (axis._title) {
-		var myw = 220;
-		var myh = 30;
-		/*var r = graph._wrapper.rect(graph._chartCont, (dims[graph.X] + dims[graph.W] /2) - myw/2,
-		  (dims[graph.Y] + dims[graph.H] + axis._titleOffset) - (myh/2 + 8), myw, myh, 10, 10,
-		  {fill: "#ffffff", opacity: .75});
-		*/
-		var t = graph._wrapper.text(graph._chartCont, dims[graph.X] + dims[graph.W] / 2,
-			dims[graph.Y] + dims[graph.H] + axis._titleOffset,
-			axis._title, $.extend({textAnchor: 'middle'}, axis._titleFormat || {}));
-		var tb = t.getBoundingClientRect();
-		//The -8 stuff is magic i dont understand, it just is needed in my firefox :(
-		var r = graph._wrapper.rect(graph._charCont, tb.left - 8 - 2, tb.top - 8 - 2, tb.width + 4,
-			tb.height + 0, tb.height/4, tb.height/4, {fill: "#ffffff", opacity: .5});
-		// without this line, the rect sits on top of the text...
-		$(t).insertAfter(r);
+			var t = graph._wrapper.text(graph._chartCont, dims[graph.X] + dims[graph.W] / 2,
+				dims[graph.Y] + dims[graph.H] + axis._titleOffset,
+				axis._title, $.extend({textAnchor: 'middle'}, axis._titleFormat || {}));
+			if (axis._titleBox) {
+				var tb = t.getBoundingClientRect();
+
+				// The -8 stuff is magic i dont understand, it just is needed in my firefox :(
+				// The -2 stuff and +4 stuff just makes the bo a bit bigger than thebounding box because
+				// it looks nice.
+				var r = graph._wrapper.rect(graph._charCont, tb.left - 8 - 2, tb.top - 8 - 2, tb.width + 4,
+					tb.height + 0, tb.height/4, tb.height/4, axis._titleBoxFormat);
+				// without this line, the rect sits on top of the text...
+				$(t).insertAfter(r);
+			}
 		}
+
 		var gl = graph._wrapper.group(graph._chartCont, $.extend({class_: 'xAxis'}, axis._lineFormat));
 		var gt = graph._wrapper.group(graph._chartCont, $.extend({class_: 'xAxisLabels',
 			textAnchor: 'middle'}, axis._labelFormat));
@@ -1012,10 +1028,12 @@ $.extend(SVGColumnChart.prototype, {
 			dims[graph.X] + dims[graph.W], dims[graph.Y] + dims[graph.H]);
 		var offsets = graph._getTickOffsets(axis, true);
 		for (var i = 1; i < numVal; i++) {
+			// draw major ticks
 			if (axis._ticks.major  && !(i%axis._ticks.major)) {
 				var x = dims[graph.X] + xScale * (barGap / 2 + i * (numSer * barWidth + barGap));
 				graph._wrapper.line(gl, x, dims[graph.Y] + dims[graph.H] + offsets[0] * axis._ticks.size,
 					x, dims[graph.Y] + dims[graph.H] + offsets[1] * axis._ticks.size);
+			//draw minor ticks
 			} else if (axis._ticks.minor && i%axis._ticks.major) {
 				var x = dims[graph.X] + xScale * (barGap / 2 + i * (numSer * barWidth + barGap));
 				graph._wrapper.line(gl, x, dims[graph.Y] + dims[graph.H] + offsets[0] * (axis._ticks.size),
@@ -1023,6 +1041,7 @@ $.extend(SVGColumnChart.prototype, {
 			}
 		}
 		//alert("axis._labelFormat: " + axis._labelFormat);
+		// Draw labels at major tick positions
 		for (var i = 0; i < numVal; i++) {
 			if (axis._ticks.major && !(i%axis._ticks.major)){
 				var x = dims[graph.X] + xScale * (barGap / 2 + (i + 0.5) * (numSer * barWidth + barGap));
@@ -1119,29 +1138,52 @@ $.extend(SVGStackedColumnChart.prototype, {
 	_drawXAxis: function(graph, numVal, barWidth, barGap, dims, xScale) {
 		var axis = graph.xAxis;
 		if (axis._title) {
-			graph._wrapper.text(graph._chartCont, dims[graph.X] + dims[graph.W] / 2,
+			var t = graph._wrapper.text(graph._chartCont, dims[graph.X] + dims[graph.W] / 2,
 				dims[graph.Y] + dims[graph.H] + axis._titleOffset,
 				axis._title, $.extend({textAnchor: 'middle'}, axis._titleFormat || {}));
+			if (axis._titleBox) {
+				var tb = t.getBoundingClientRect();
+				// The -8 stuff is magic i dont understand, it just is needed in my firefox :(
+				// The -2 stuff and +4 stuff just makes the bo a bit bigger than thebounding box because
+				// it looks nice.
+				var r = graph._wrapper.rect(graph._charCont, tb.left - 8 - 2, tb.top - 8 - 2, tb.width + 4,
+					tb.height + 0, tb.height/4, tb.height/4, axis._titleBoxFormat);
+				// without this line, the rect sits on top of the text...
+				$(t).insertAfter(r);
+			}
 		}
+
 		var gl = graph._wrapper.group(graph._chartCont, $.extend({class_: 'xAxis'}, axis._lineFormat));
 		var gt = graph._wrapper.group(graph._chartCont, $.extend({class_: 'xAxisLabels',
 			textAnchor: 'middle'}, axis._labelFormat));
 		graph._wrapper.line(gl, dims[graph.X], dims[graph.Y] + dims[graph.H],
-		dims[graph.X] + dims[graph.W], dims[graph.Y] + dims[graph.H]);
-		if (axis._ticks.major) {
-			var offsets = graph._getTickOffsets(axis, true);
-			for (var i = 1; i < numVal; i++) {
-				var x = dims[graph.X] + xScale * (barGap / 2 + i * (barWidth + barGap));
+			dims[graph.X] + dims[graph.W], dims[graph.Y] + dims[graph.H]);
+		var offsets = graph._getTickOffsets(axis, true);
+		for (var i = 1; i < numVal; i++) {
+			// draw major ticks
+			if (axis._ticks.major  && !(i%axis._ticks.major)) {
+				var x = dims[graph.X] + xScale * (barGap / 2 + i * (numSer * barWidth + barGap));
 				graph._wrapper.line(gl, x, dims[graph.Y] + dims[graph.H] + offsets[0] * axis._ticks.size,
 					x, dims[graph.Y] + dims[graph.H] + offsets[1] * axis._ticks.size);
+			//draw minor ticks
+			} else if (axis._ticks.minor && i%axis._ticks.major) {
+				var x = dims[graph.X] + xScale * (barGap / 2 + i * (numSer * barWidth + barGap));
+				graph._wrapper.line(gl, x, dims[graph.Y] + dims[graph.H] + offsets[0] * (axis._ticks.size),
+					x, dims[graph.Y] + dims[graph.H] + offsets[1] * (axis._ticks.size/2));
 			}
-			for (var i = 0; i < numVal; i++) {
-				var x = dims[graph.X] + xScale * (barGap / 2 + (i + 0.5) * (barWidth + barGap));
-				graph._wrapper.text(gt, x, dims[graph.Y] + dims[graph.H] + 2 * axis._ticks.size,
-					(axis._labels ? axis._labels[i] : '' + i));
+		}
+		//alert("axis._labelFormat: " + axis._labelFormat);
+		// Draw labels at major tick positions
+		for (var i = 0; i < numVal; i++) {
+			if (axis._ticks.major && !(i%axis._ticks.major)){
+				var x = dims[graph.X] + xScale * (barGap / 2 + (i + 0.5) * (numSer * barWidth + barGap));
+				n = graph._getLabel(axis._labels ? axis._labels[i/axis._ticks.major] : '' + i,
+						axis._labelScale, axis._labelFormat);
+				graph._wrapper.text(gt, x, dims[graph.Y] + dims[graph.H] + 3 * axis._ticks.size, n);
 			}
 		}
 	}
+
 });
 
 //------------------------------------------------------------------------------
